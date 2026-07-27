@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 const authRoutes = require('./routes/auth');
 const domainRoutes = require('./routes/domains');
 const redirectRoute = require('./routes/redirect');
+const telegramRoutes = require('./routes/telegram');
 const { startSchedulers } = require('./services/scheduler');
 
 const app = express();
@@ -55,6 +56,7 @@ const redirectLimiter = rateLimit({
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api/auth', apiLimiter, authRoutes);
 app.use('/api/domains', apiLimiter, domainRoutes);
+app.use('/api/telegram', telegramRoutes);
 
 // Health check endpoint untuk Railway
 app.get('/health', (req, res) => {
