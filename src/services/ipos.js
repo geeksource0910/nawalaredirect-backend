@@ -1,33 +1,25 @@
-const dns = require('dns').promises;
+const axios = require('axios');
 
-// IP addresses buat blocked domains oleh IPOS/Nawala Kominfo
-// Same list yang dipake project google sheet system (server.js)
-const NAWALA_BLOCK_IPS = [
-  '36.86.63.185',
-  '36.86.63.184',
-  '36.86.63.186',
-  '36.86.63.187',
-  '36.86.63.188',
-  '36.86.63.189',
-  '36.86.63.190',
-  '36.86.63.191',
-  '36.86.63.183',
-  '36.86.63.182',
-  '10.10.10.10',
-  '180.131.144.144',
-  '180.131.145.145',
-];
+// Endpoint Trust Positif Kominfo real-time checker (bukan blocklist DB)
+// Same source yang dipake project google sheet system (server.js)
+const CHECK_URL = 'https://trustpositif.komdigi.go.id/Rule/CheckSTS';
 
-// Custom DNS resolver pake IPOS Nawala Kominfo
-// biar query resolve kayak dari ISP Indonesia (dapet IP block kalo kena nawala)
-const iposResolver = new dns.Resolver();
-iposResolver.setServers(['180.131.144.144', '180.131.145.145']);
+const AXIOS_CONFIG = {
+  timeout: 10000,
+  headers: {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'id-ID,id;q=0.9,en;q=0.8',
+  },
+  // ga throw error di status 4xx/5xx
+  validateStatus: () => true,
+};
 
 /**
- * Cek 1 domain via IPOS DNS resolver (real-time detection)
- * Return: { blocked: boolean, ips: string[], error: string|null }
+ * Cek 1 domain via Trust Positif real-time endpoint
+ * Return: { blocked: boolean, reason: string, error: string|null }
  */
-async function checkIPOS(url, timeoutMs = 5000) {
+async function checkIPOS(url) {
   const domain = url
     .replace(/^https?:\/\//, '')
     .replace(/\/$/, '')
@@ -35,24 +27,51 @@ async function checkIPOS(url, timeoutMs = 5000) {
     .toLowerCase();
 
   try {
-    // Race dengan timeout supaya ga stuck
-    const addresses = await Promise.race([
-      iposResolver.resolve4(domain),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('DNS timeout')), timeoutMs)
-      ),
-    ]);
+    const res = await axios.get(CHECK_URL, {
+      ...AXIOS_CONFIG,
+      params: { domain },
+    });
 
-    // Kalo IP address match dengan block list = domain kena blokir
-    const blocked = addresses.some(ip => NAWALA_BLOCK_IPS.includes(ip));
-    return { blocked, ips: addresses, error: null };
+    const body = String(res.data || '').toLowerCase();
+
+    // Detect blocked keywords dari response body
+    // Trust Positif biasa balikin: "diblokir", "blocked", "trust+", "tidak diizinkan", dll.
+    const blockedKeywords = [
+      'diblokir',
+      'blocked',
+      'trust+',
+      'trustpositif',
+      'not allowed',
+      'tidak diizinkan',
+      'tidak diperbolehkan',
+      'internet positif',
+    ];
+
+    const safeKeywords = [
+      'aman',
+      'safe',
+      'not blocked',
+      'tidak ditemukan',
+      'not found in database',
+      'clean',
+    ];
+
+    // Cek dulu kalo ada safe keyword (higher priority)
+    const isSafe = safeKeywords.some(kw => body.includes(kw));
+    if (isSafe) return { blocked: false, reason: 'safe-keyword', error: null };
+
+    // Cek blocked keyword
+    const isBlocked = blockedKeywords.some(kw => body.includes(kw));
+    if (isBlocked) return { blocked: true, reason: 'blocked-keyword', error: null };
+
+    // Kalo body pendek/kosong, mungkin domain aman (endpoint balikin empty)
+    if (body.trim().length < 50) return { blocked: false, reason: 'empty-response', error: null };
+
+    // Default: assume safe kalo ga match keyword apapun
+    return { blocked: false, reason: 'no-match', error: null };
   } catch (err) {
-    // ENOTFOUND / NXDOMAIN = domain ga bisa resolve, treat as blocked
-    if (err.code === 'ENOTFOUND' || err.code === 'ENODATA') {
-      return { blocked: true, ips: [], error: 'NXDOMAIN' };
-    }
-    // Timeout atau error lain — return unknown (jangan false positive)
-    return { blocked: false, ips: [], error: err.message };
+    // Network error / timeout — return unknown (jangan false positive)
+    return { blocked: false, reason: null, error: err.message };
   }
 }
 
