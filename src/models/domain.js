@@ -130,22 +130,23 @@ const Domain = {
   },
   getStats() {
     return Promise.resolve().then(async () => ({
-      total: (await db.get('SELECT COUNT(*) as c FROM domains')).c,
-      active: (await db.get('SELECT COUNT(*) as c FROM domains WHERE is_active=1 AND is_blocked=0')).c,
-      blocked: (await db.get('SELECT COUNT(*) as c FROM domains WHERE is_blocked=1')).c,
-      inactive: (await db.get('SELECT COUNT(*) as c FROM domains WHERE is_active=0')).c,
-      totalRedirects: (await db.get('SELECT COUNT(*) as c FROM redirect_logs')).c,
-      todayRedirects: (await db.get("SELECT COUNT(*) as c FROM redirect_logs WHERE DATE(created_at)=CURRENT_DATE")).c,
+      // FIX: PostgreSQL COUNT() returns bigint → string, wajib parseInt
+      total:         parseInt((await db.get('SELECT COUNT(*) as c FROM domains')).c) || 0,
+      active:        parseInt((await db.get('SELECT COUNT(*) as c FROM domains WHERE is_active=1 AND is_blocked=0')).c) || 0,
+      blocked:       parseInt((await db.get('SELECT COUNT(*) as c FROM domains WHERE is_blocked=1')).c) || 0,
+      inactive:      parseInt((await db.get('SELECT COUNT(*) as c FROM domains WHERE is_active=0')).c) || 0,
+      totalRedirects: parseInt((await db.get('SELECT COUNT(*) as c FROM redirect_logs')).c) || 0,
+      todayRedirects: parseInt((await db.get("SELECT COUNT(*) as c FROM redirect_logs WHERE DATE(created_at)=CURRENT_DATE")).c) || 0,
     }));
   },
   getStatsByGroup() {
     return Promise.resolve().then(async () => {
       const groups = await this.getAllGroups();
       return Promise.all(groups.map(async g => ({
-        group: g.group_name,
-        total: (await db.get('SELECT COUNT(*) as c FROM domains WHERE group_name=?', [g.group_name])).c,
-        active: (await db.get('SELECT COUNT(*) as c FROM domains WHERE group_name=? AND is_active=1 AND is_blocked=0', [g.group_name])).c,
-        blocked: (await db.get('SELECT COUNT(*) as c FROM domains WHERE group_name=? AND is_blocked=1', [g.group_name])).c,
+        group:   g.group_name,
+        total:   parseInt((await db.get('SELECT COUNT(*) as c FROM domains WHERE group_name=?', [g.group_name])).c) || 0,
+        active:  parseInt((await db.get('SELECT COUNT(*) as c FROM domains WHERE group_name=? AND is_active=1 AND is_blocked=0', [g.group_name])).c) || 0,
+        blocked: parseInt((await db.get('SELECT COUNT(*) as c FROM domains WHERE group_name=? AND is_blocked=1', [g.group_name])).c) || 0,
       })));
     });
   },
