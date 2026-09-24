@@ -14,9 +14,9 @@ require('dotenv').config();
 const axios = require('axios');
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-// Ganti sesuai domain backend production kamu
 const BASE_URL = process.env.BACKEND_URL || 'https://akseslinkresmi.com';
 const WEBHOOK_URL = `${BASE_URL}/api/telegram/webhook`;
+const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 
 async function setWebhook() {
   if (!BOT_TOKEN) {
@@ -24,16 +24,28 @@ async function setWebhook() {
     process.exit(1);
   }
 
+  if (!WEBHOOK_SECRET) {
+    console.warn('⚠️  TELEGRAM_WEBHOOK_SECRET tidak di-set — webhook jalan tanpa validasi secret');
+  }
+
   try {
     console.log(`🔧 Setting webhook ke: ${WEBHOOK_URL}`);
 
+    const payload = {
+      url: WEBHOOK_URL,
+      allowed_updates: ['message'],
+      drop_pending_updates: true,
+    };
+
+    // Kalau WEBHOOK_SECRET ada, sertakan ke Telegram supaya setiap update dikasih header secret
+    if (WEBHOOK_SECRET) {
+      payload.secret_token = WEBHOOK_SECRET;
+      console.log('🔐 Secret token disertakan');
+    }
+
     const res = await axios.post(
       `https://api.telegram.org/bot${BOT_TOKEN}/setWebhook`,
-      {
-        url: WEBHOOK_URL,
-        allowed_updates: ['message'],
-        drop_pending_updates: true,
-      }
+      payload
     );
 
     if (res.data.ok) {
@@ -47,6 +59,7 @@ async function setWebhook() {
       console.log('\n📊 Webhook Info:');
       console.log('   URL:', info.data.result.url);
       console.log('   Pending updates:', info.data.result.pending_update_count);
+      console.log('   Has secret token:', info.data.result.has_custom_certificate || WEBHOOK_SECRET ? 'Ya' : 'Tidak');
       console.log('   Last error:', info.data.result.last_error_message || '(none)');
     } else {
       console.error('❌ Gagal set webhook:', res.data);
