@@ -6,7 +6,8 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const INDIWTF_TOKEN = process.env.INDIWTF_TOKEN;
 const INDIWTF_BASE_URL = 'https://indiwtf.com/api';
-const BOT_USERNAME = 'InfoNawalaNewBot';
+// FIX: BOT_USERNAME dari env supaya tidak perlu ubah kode kalau bot rename
+const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME || 'InfoNawalaNewBot';
 
 /**
  * Kirim reply ke chat/group

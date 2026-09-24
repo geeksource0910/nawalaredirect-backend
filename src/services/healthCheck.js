@@ -58,7 +58,8 @@ async function checkDomain(domain) {
     
     const blocked = isNawalaPage(html, finalUrl) || response.status === 403;
 
-    Domain.updateHealthCheck(domain.id, {
+    // FIX: await updateHealthCheck supaya error bisa ketangkap dan tidak fire-and-forget
+    await Domain.updateHealthCheck(domain.id, {
       isBlocked: blocked,
       statusCode: response.status,
       responseTime,
@@ -79,7 +80,8 @@ async function checkDomain(domain) {
     const isTimeout = err.code === 'ECONNABORTED' || err.message.includes('timeout');
     const errorMsg = isTimeout ? 'Timeout' : (err.message || 'Unknown error');
 
-    Domain.updateHealthCheck(domain.id, {
+    // FIX: await updateHealthCheck
+    await Domain.updateHealthCheck(domain.id, {
       isBlocked: true,
       statusCode: null,
       responseTime,
@@ -102,7 +104,9 @@ async function checkDomain(domain) {
  * Health check semua domain sekaligus (concurrent)
  */
 async function checkAllDomains() {
-  const domains = Domain.getAll().filter(d => d.is_active === 1);
+  // FIX: Domain.getAll() adalah async — wajib await
+  const allDomains = await Domain.getAll();
+  const domains = allDomains.filter(d => d.is_active === 1);
   
   if (domains.length === 0) {
     console.log('⚠️  Tidak ada domain aktif untuk dicek');

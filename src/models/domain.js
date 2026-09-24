@@ -19,10 +19,13 @@ const Domain = {
   getPriorityByGroup(groupName) {
     return db.get('SELECT * FROM domains WHERE group_name=? AND is_priority=1 AND is_active=1 AND is_blocked=0', [groupName]);
   },
-  setPriority(id, groupName) {
-    db.run('UPDATE domains SET is_priority=0 WHERE group_name=?', [groupName]);
-    db.run('UPDATE domains SET is_priority=1, updated_at=NOW() WHERE id=?', [parseInt(id)]);
+
+  // FIX: async + await kedua query — sebelumnya fire-and-forget, priority tidak pernah ke-set dengan benar
+  async setPriority(id, groupName) {
+    await db.run('UPDATE domains SET is_priority=0 WHERE group_name=?', [groupName]);
+    await db.run('UPDATE domains SET is_priority=1, updated_at=NOW() WHERE id=?', [parseInt(id)]);
   },
+
   getTargetByGroup(groupName) {
     return Promise.resolve().then(async () => {
       const priority = await this.getPriorityByGroup(groupName);

@@ -26,7 +26,8 @@ app.use(cors({
   origin: (origin, callback) => {
     // Izinkan request tanpa origin (curl, server-to-server)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+    // FIX: kalau ALLOWED_ORIGINS kosong, tolak semua origin (bukan allow semua)
+    if (allowedOrigins.length > 0 && allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
     callback(new Error(`CORS: Origin ${origin} tidak diizinkan`));

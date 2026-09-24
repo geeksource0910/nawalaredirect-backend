@@ -73,7 +73,8 @@ async function sendDomainReport() {
   }
 
   message += `${'─'.repeat(30)}\n`;
-  message += `🤖 Auto report setiap 4 jam`;
+  // FIX: pakai REPORT_INTERVAL dari env, bukan hardcode "4 jam"
+  message += `🤖 Auto report setiap ${process.env.REPORT_INTERVAL || 4} jam`;
 
   await sendMessage(message);
 }

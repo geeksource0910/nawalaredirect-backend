@@ -34,7 +34,8 @@ router.get('/groups', authMiddleware, async (req, res) => {
 });
 
 // GET /api/domains/active
-router.get('/active', async (req, res) => {
+// FIX: tambah authMiddleware — sebelumnya publik tanpa auth
+router.get('/active', authMiddleware, async (req, res) => {
   try {
     const { group } = req.query;
     const data = group ? await Domain.getActiveByGroup(group) : await Domain.getActive();
